@@ -137,6 +137,17 @@ class EditAppointment:
             messagebox.showerror("Error", "Please select a patient.")
             return
 
+        # Block conflicts with OTHER appointments (exclude this one's own ID
+        # so editing it without changing the slot doesn't flag itself)
+        if database.check_appointment_conflict(appt_date, appt_time,
+                                               exclude_id=self.appointment_id):
+            messagebox.showerror(
+                "Slot Unavailable",
+                f"Another appointment already exists on {appt_date} at {appt_time}.\n"
+                "Please choose a different slot."
+            )
+            return
+
         patient_id = int(patient_str.split(" - ")[0])
         success = database.update_appointment(
             self.appointment_id, patient_id, appt_date,

@@ -188,6 +188,33 @@ def add_sample_data():
 
 
 # ─────────────────────────────────────────────────────────
+# APPOINTMENT CONFLICT CHECK
+# ─────────────────────────────────────────────────────────
+
+def check_appointment_conflict(appt_date, appt_time, exclude_id=None):
+    """Returns True if a slot is already booked, False if free."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        if exclude_id:
+            cursor.execute("""
+                SELECT COUNT(*) FROM appointments
+                WHERE appointment_date = ?
+                  AND appointment_time = ?
+                  AND appointment_id  != ?
+            """, (appt_date, appt_time, exclude_id))
+        else:
+            cursor.execute("""
+                SELECT COUNT(*) FROM appointments
+                WHERE appointment_date = ?
+                  AND appointment_time = ?
+            """, (appt_date, appt_time))
+        return cursor.fetchone()[0] > 0
+    finally:
+        conn.close()
+
+
+# ─────────────────────────────────────────────────────────
 # USERS
 # ─────────────────────────────────────────────────────────
 
@@ -221,12 +248,24 @@ def authenticate_user(staff_id, password, company_code):
         return None
 
 
-def get_all_users():
-    """Returns list of all staff users."""
+def get_all_users(role_filter=""):
+    """
+    Returns list of all staff users.
+    Optional role_filter narrows results (e.g. "Admin", "Physiotherapist").
+    """
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT id, staff_id, role, created_date FROM users ORDER BY role, staff_id")
+
+        query = "SELECT id, staff_id, role, created_date FROM users"
+        params = []
+
+        if role_filter:
+            query += " WHERE role LIKE ?"
+            params.append(f"%{role_filter}%")
+
+        query += " ORDER BY role, staff_id"
+        cursor.execute(query, params)
         users = cursor.fetchall()
         conn.close()
         return users
@@ -442,8 +481,8 @@ def get_all_appointments(search_term="", date_filter=""):
         params = [f"%{search_term}%"]
 
         if date_filter:
-            query += " AND a.appointment_date = ?"
-            params.append(date_filter)
+            query += " AND a.appointment_date LIKE ?"
+            params.append(f"%{date_filter}%")
 
         query += " ORDER BY a.appointment_date, a.appointment_time"
 
@@ -528,6 +567,29 @@ def get_appointments_by_patient(patient_id):
     except sqlite3.Error as e:
         print(f"Get appointments by patient error: {e}")
         return []
+
+
+def get_latest_appointment_for_patient(patient_id):
+    """
+    Returns the most recently created appointment for a given patient.
+    Used to link auto-generated invoices to the appointment just booked.
+    """
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            '''SELECT appointment_id FROM appointments
+               WHERE patient_id = ?
+               ORDER BY appointment_id DESC
+               LIMIT 1''',
+            (patient_id,)
+        )
+        result = cursor.fetchone()
+        conn.close()
+        return result
+    except sqlite3.Error as e:
+        print(f"Get latest appointment error: {e}")
+        return None
 
 
 # ─────────────────────────────────────────────────────────

@@ -7,6 +7,17 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import database
 
+# Preset invoice types (keeps receptionist from typing every time)
+INVOICE_PRESETS = {
+    "Initial Assessment":       45.00,
+    "Treatment Session":        60.00,
+    "Follow-up Session":        40.00,
+    "Review Consultation":      35.00,
+    "Extended Session (60min)": 90.00,
+    "Missed Appointment Fee":   25.00,
+    "Other (custom)":           0.00,
+}
+
 
 class BillingScreen:
 
@@ -73,7 +84,6 @@ class BillingScreen:
         f = self.filter_var.get() if hasattr(self, "filter_var") else "All"
         status = "" if f == "All" else f
         for inv in database.get_all_invoices(status):
-            # inv: invoice_id, patient_name, amount, description, status, created_at
             self.tree.insert("", tk.END, values=(
                 inv[0], inv[1], f"£{inv[2]:.2f}", inv[3], inv[4], inv[5][:10]
             ))
@@ -119,7 +129,7 @@ class AddInvoice:
         self.user_id  = user_id
         self.on_close = on_close
         self.window.title("New Invoice")
-        self.window.geometry("400x360")
+        self.window.geometry("420x400")
         self.window.resizable(False, False)
         self.patients = database.get_all_patients()
         self.create_widgets()
@@ -140,15 +150,27 @@ class AddInvoice:
         if patient_names:
             self.patient_var.set(patient_names[0])
 
-        # Amount
-        tk.Label(form, text="Amount (£):", anchor="w").grid(row=1, column=0, sticky="w", pady=6)
-        self.amount_entry = tk.Entry(form, width=28)
-        self.amount_entry.grid(row=1, column=1, pady=6, padx=(10, 0))
+        # Preset dropdown (description)
+        tk.Label(form, text="Service:", anchor="w").grid(row=1, column=0, sticky="w", pady=6)
+        self.preset_var = tk.StringVar(value="Treatment Session")
+        preset_cb = ttk.Combobox(form, textvariable=self.preset_var,
+                                 values=list(INVOICE_PRESETS.keys()),
+                                 width=26, state="readonly")
+        preset_cb.grid(row=1, column=1, pady=6, padx=(10, 0))
+        preset_cb.bind("<<ComboboxSelected>>", lambda e: self._apply_preset())
 
-        # Description
-        tk.Label(form, text="Description:", anchor="w").grid(row=2, column=0, sticky="nw", pady=6)
-        self.desc_text = tk.Text(form, width=21, height=4)
-        self.desc_text.grid(row=2, column=1, pady=6, padx=(10, 0))
+        # Amount (auto-filled but editable)
+        tk.Label(form, text="Amount (£):", anchor="w").grid(row=2, column=0, sticky="w", pady=6)
+        self.amount_entry = tk.Entry(form, width=28)
+        self.amount_entry.grid(row=2, column=1, pady=6, padx=(10, 0))
+
+        # Description (auto-filled but editable)
+        tk.Label(form, text="Description:", anchor="nw").grid(row=3, column=0, sticky="nw", pady=6)
+        self.desc_text = tk.Text(form, width=21, height=3)
+        self.desc_text.grid(row=3, column=1, pady=6, padx=(10, 0))
+
+        # Apply the default preset on open
+        self._apply_preset()
 
         bf = tk.Frame(self.window)
         bf.pack(pady=15)
@@ -157,6 +179,21 @@ class AddInvoice:
                   font=("Arial", 10, "bold"), relief=tk.FLAT).pack(side=tk.LEFT, padx=5)
         tk.Button(bf, text="Cancel", command=self.window.destroy,
                   width=10, relief=tk.FLAT).pack(side=tk.LEFT, padx=5)
+
+    def _apply_preset(self):
+        """Fill in the amount and description when a preset is chosen."""
+        preset = self.preset_var.get()
+        amount = INVOICE_PRESETS.get(preset, 0.00)
+
+        # Update amount
+        self.amount_entry.delete(0, tk.END)
+        if preset != "Other (custom)" and amount > 0:
+            self.amount_entry.insert(0, f"{amount:.2f}")
+
+        # Update description
+        self.desc_text.delete("1.0", tk.END)
+        if preset != "Other (custom)":
+            self.desc_text.insert("1.0", preset)
 
     def save(self):
         patient_str = self.patient_var.get()

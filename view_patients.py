@@ -3,9 +3,12 @@ view_patients.py - Fixit Physio Enhanced System
 View, add, edit and delete patients.
 """
 
+import re
 import tkinter as tk
 from tkinter import ttk, messagebox
+from datetime import datetime, date
 import database
+from date_picker import DatePicker
 
 
 class ViewPatients:
@@ -134,7 +137,7 @@ class PatientForm:
         self.patient_id = patient_id
         self.on_close   = on_close
         self.window.title("Edit Patient" if patient_id else "Add Patient")
-        self.window.geometry("400x400")
+        self.window.geometry("440x420")
         self.window.resizable(False, False)
         self.create_widgets()
         if patient_id:
@@ -147,16 +150,30 @@ class PatientForm:
         form = tk.Frame(self.window, padx=30)
         form.pack()
 
-        fields = ["Full Name:", "Phone Number:", "Email Address:", "Date of Birth (YYYY-MM-DD):", "Notes:"]
-        self.entries = []
-        for i, label in enumerate(fields):
-            tk.Label(form, text=label, anchor="w").grid(row=i, column=0, sticky="w", pady=5)
-            if label == "Notes:":
-                widget = tk.Text(form, width=22, height=3)
-            else:
-                widget = tk.Entry(form, width=25)
-            widget.grid(row=i, column=1, pady=5, padx=(10, 0))
-            self.entries.append(widget)
+        # Full Name
+        tk.Label(form, text="Full Name:", anchor="w").grid(row=0, column=0, sticky="w", pady=5)
+        self.name_entry = tk.Entry(form, width=28)
+        self.name_entry.grid(row=0, column=1, pady=5, padx=(10, 0))
+
+        # Phone
+        tk.Label(form, text="Phone Number:", anchor="w").grid(row=1, column=0, sticky="w", pady=5)
+        self.phone_entry = tk.Entry(form, width=28)
+        self.phone_entry.grid(row=1, column=1, pady=5, padx=(10, 0))
+
+        # Email
+        tk.Label(form, text="Email Address:", anchor="w").grid(row=2, column=0, sticky="w", pady=5)
+        self.email_entry = tk.Entry(form, width=28)
+        self.email_entry.grid(row=2, column=1, pady=5, padx=(10, 0))
+
+        # DOB (date picker)
+        tk.Label(form, text="Date of Birth:", anchor="w").grid(row=3, column=0, sticky="w", pady=5)
+        self.dob_picker = DatePicker(form)
+        self.dob_picker.grid(row=3, column=1, pady=5, padx=(10, 0), sticky="w")
+
+        # Notes
+        tk.Label(form, text="Notes:", anchor="nw").grid(row=4, column=0, sticky="nw", pady=5)
+        self.notes_text = tk.Text(form, width=22, height=3)
+        self.notes_text.grid(row=4, column=1, pady=5, padx=(10, 0))
 
         bf = tk.Frame(self.window)
         bf.pack(pady=15)
@@ -171,23 +188,61 @@ class PatientForm:
         if not data:
             return
         # data: patient_id, name, phone, email, dob, notes, created_date
-        vals = [data[1], data[2], data[3], data[4], data[5]]
-        for widget, val in zip(self.entries, vals):
-            if isinstance(widget, tk.Text):
-                widget.insert("1.0", val or "")
-            else:
-                widget.insert(0, val or "")
+        self.name_entry.insert(0, data[1] or "")
+        self.phone_entry.insert(0, data[2] or "")
+        self.email_entry.insert(0, data[3] or "")
+        if data[4]:
+            self.dob_picker.set(data[4])
+        if data[5]:
+            self.notes_text.insert("1.0", data[5])
 
     def save(self):
-        name  = self.entries[0].get().strip()
-        phone = self.entries[1].get().strip()
-        email = self.entries[2].get().strip()
-        dob   = self.entries[3].get().strip()
-        notes = self.entries[4].get("1.0", tk.END).strip()
+        name  = self.name_entry.get().strip()
+        phone = self.phone_entry.get().strip()
+        email = self.email_entry.get().strip()
+        dob   = self.dob_picker.get().strip()
+        notes = self.notes_text.get("1.0", tk.END).strip()
 
+        # Required: name
         if not name:
             messagebox.showerror("Error", "Patient name is required.")
             return
+
+        # Phone (optional, but UK format if entered)
+        if phone and not re.match(
+                r"^(\+44\s?|0)\d{2,4}\s?\d{3,4}\s?\d{3,4}$", phone):
+            messagebox.showerror("Invalid Phone",
+                "Phone must be a valid UK number "
+                "(e.g. 07891 234567 or 02890 123456).")
+            return
+
+        # Email (optional, but valid format if entered)
+        if email and not re.match(
+                r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email):
+            messagebox.showerror("Invalid Email",
+                "Email address is not in a valid format.")
+            return
+
+        # DOB (optional, but must be a real past date if entered)
+        if dob:
+            if not re.match(r"^\d{4}-\d{2}-\d{2}$", dob):
+                messagebox.showerror("Invalid DOB",
+                    "Date of birth must be in YYYY-MM-DD format.")
+                return
+            try:
+                dob_parsed = datetime.strptime(dob, "%Y-%m-%d").date()
+            except ValueError:
+                messagebox.showerror("Invalid DOB",
+                    "That is not a real date.")
+                return
+            if dob_parsed > date.today():
+                messagebox.showerror("Invalid DOB",
+                    "Date of birth cannot be in the future.")
+                return
+            if (date.today().year - dob_parsed.year) > 120:
+                messagebox.showerror("Invalid DOB",
+                    "Date of birth cannot be more than 120 years ago.")
+                return
 
         if self.patient_id:
             success = database.update_patient(self.patient_id, name, phone, email, dob, notes)

@@ -27,6 +27,19 @@ class StaffManagement:
                   command=self.open_add, font=("Arial", 10, "bold"),
                   relief=tk.FLAT, padx=10).pack(side=tk.RIGHT)
 
+        # ── Filter bar ──
+        filter_frame = tk.Frame(self.parent, bg="#f0f0f0")
+        filter_frame.pack(fill=tk.X, padx=15, pady=5)
+        tk.Label(filter_frame, text="Filter by role:", bg="#f0f0f0").pack(side=tk.LEFT)
+        self.role_var = tk.StringVar()
+        self.role_var.trace("w", lambda *a: self.refresh())
+        ttk.Combobox(filter_frame, textvariable=self.role_var,
+                     values=["", "Receptionist", "Physiotherapist", "Admin"],
+                     width=18, state="readonly").pack(side=tk.LEFT, padx=5)
+        tk.Button(filter_frame, text="Clear",
+                  command=lambda: self.role_var.set(""),
+                  bg="#aaaaaa", fg="white", relief=tk.FLAT).pack(side=tk.LEFT, padx=5)
+
         tf = tk.Frame(self.parent)
         tf.pack(fill=tk.BOTH, expand=True, padx=15, pady=10)
         sb = tk.Scrollbar(tf)
@@ -51,7 +64,8 @@ class StaffManagement:
     def refresh(self):
         for row in self.tree.get_children():
             self.tree.delete(row)
-        for user in database.get_all_users():
+        role = self.role_var.get() if hasattr(self, "role_var") else ""
+        for user in database.get_all_users(role):
             self.tree.insert("", tk.END, values=user)
 
     def get_selected_staff_id(self):

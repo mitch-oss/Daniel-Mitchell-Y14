@@ -13,8 +13,7 @@ class LoginScreen:
     def __init__(self, root):
         self.root = root
         self.root.title("Fixit Physio - Staff Login")
-        self.root.geometry("420x340")
-        self.root.resizable(False, False)
+        self.root.state('zoomed')   # open maximised (full screen)
         self.current_user = None
         self.current_role = None
         self.create_widgets()
@@ -29,9 +28,13 @@ class LoginScreen:
         tk.Label(header, text="Staff Login Portal", font=("Arial", 11),
                  bg="#2E75B6", fg="#cce4f7").pack()
 
-        # Form
-        form = tk.Frame(self.root, padx=40, pady=20)
-        form.pack(fill=tk.BOTH, expand=True)
+        # Outer container fills the remaining space below the header
+        container = tk.Frame(self.root)
+        container.pack(fill=tk.BOTH, expand=True)
+
+        # Inner form, centered within the container
+        form = tk.Frame(container, padx=40, pady=20)
+        form.place(relx=0.5, rely=0.5, anchor="center")
 
         tk.Label(form, text="Staff ID:", anchor="w").grid(row=0, column=0, sticky="w", pady=5)
         self.staff_id_entry = tk.Entry(form, width=28)
@@ -72,6 +75,7 @@ class LoginScreen:
         if role:
             self.current_user = staff_id
             self.current_role = role
+            messagebox.showinfo("Login", "Login successful.")
             self.root.destroy()
             self.open_main_menu()
         else:

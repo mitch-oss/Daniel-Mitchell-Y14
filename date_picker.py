@@ -84,10 +84,12 @@ class CalendarPopup(tk.Toplevel):
 
     def __init__(self, parent, current_date, callback):
         super().__init__(parent)
-        self.callback     = callback
-        self.viewing_year  = current_date.year
-        self.viewing_month = current_date.month
-        self.selected_day  = current_date.day
+        self.callback       = callback
+        self.viewing_year   = current_date.year
+        self.viewing_month  = current_date.month
+        self.selected_day   = current_date.day
+        self.selected_month = current_date.month
+        self.selected_year  = current_date.year
 
         self.title("Pick a Date")
         self.resizable(False, False)
@@ -99,14 +101,26 @@ class CalendarPopup(tk.Toplevel):
     def _build(self):
         self.configure(bg="white", padx=8, pady=8)
 
-        # Month/year navigation
+        # Year navigation
+        year_nav = tk.Frame(self, bg="white")
+        year_nav.pack(fill=tk.X, pady=(0, 3))
+
+        tk.Button(year_nav, text="◀◀ Year", command=self._prev_year,
+                  relief=tk.FLAT, bg="#f0f0f0", font=("Arial", 9)).pack(side=tk.LEFT)
+        self.year_label = tk.Label(year_nav, text="", font=("Arial", 11, "bold"),
+                                   bg="white", width=10, anchor="center")
+        self.year_label.pack(side=tk.LEFT, expand=True)
+        tk.Button(year_nav, text="Year ▶▶", command=self._next_year,
+                  relief=tk.FLAT, bg="#f0f0f0", font=("Arial", 9)).pack(side=tk.RIGHT)
+
+        # Month navigation
         nav = tk.Frame(self, bg="white")
         nav.pack(fill=tk.X, pady=(0, 5))
 
         tk.Button(nav, text="◀", command=self._prev_month,
                   relief=tk.FLAT, bg="white", font=("Arial", 12)).pack(side=tk.LEFT)
         self.month_label = tk.Label(nav, text="", font=("Arial", 11, "bold"),
-                                    bg="white", width=18, anchor="center")
+                                    bg="white", width=12, anchor="center")
         self.month_label.pack(side=tk.LEFT, expand=True)
         tk.Button(nav, text="▶", command=self._next_month,
                   relief=tk.FLAT, bg="white", font=("Arial", 12)).pack(side=tk.RIGHT)
@@ -128,9 +142,8 @@ class CalendarPopup(tk.Toplevel):
         for w in self.grid_frame.winfo_children():
             w.destroy()
 
-        self.month_label.config(
-            text=f"{self.MONTHS[self.viewing_month - 1]}  {self.viewing_year}"
-        )
+        self.month_label.config(text=self.MONTHS[self.viewing_month - 1])
+        self.year_label.config(text=str(self.viewing_year))
 
         # Get calendar matrix
         cal = calendar.monthcalendar(self.viewing_year, self.viewing_month)
@@ -147,11 +160,13 @@ class CalendarPopup(tk.Toplevel):
                                    self.viewing_month == today.month and
                                    self.viewing_year  == today.year)
                     is_selected = (day == self.selected_day and
-                                   self.viewing_month == self.selected_day and
-                                   self.viewing_year  == self.viewing_year)
+                                   self.viewing_month == self.selected_month and
+                                   self.viewing_year  == self.selected_year)
 
                     if is_today:
                         bg, fg = "#2E75B6", "white"
+                    elif is_selected:
+                        bg, fg = "#cce4f7", "black"
                     else:
                         bg, fg = "white", "black"
 
@@ -178,6 +193,14 @@ class CalendarPopup(tk.Toplevel):
             self.viewing_year += 1
         else:
             self.viewing_month += 1
+        self._render_days()
+
+    def _prev_year(self):
+        self.viewing_year -= 1
+        self._render_days()
+
+    def _next_year(self):
+        self.viewing_year += 1
         self._render_days()
 
     def _pick(self, day):

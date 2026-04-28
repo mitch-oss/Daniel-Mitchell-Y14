@@ -14,7 +14,7 @@ class MainMenu:
         self.root = root
         self.root.title("Fixit Physio - Dashboard")
         self.root.geometry("750x500")
-        self.root.resizable(False, False)
+        self.root.resizable(True, True)
         self.user_id   = user_id
         self.user_role = user_role
         self.create_widgets()
